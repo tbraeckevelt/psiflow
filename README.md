@@ -10,6 +10,8 @@
 [![DOI](https://flat.badgen.net/static/DOI/10.1038%2Fs41524-023-00969-x)](https://www.nature.com/articles/s41524-023-00969-x)
 
 
+This is my own fork, mainly to program the necessary methods to perform thermodynamic integration.
+
 # Scalable Molecular Simulation
 
 Psiflow is a scalable molecular simulation engine for chemistry and materials science applications.
