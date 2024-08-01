@@ -223,7 +223,6 @@ class Integration_own:
         assert len(np.unique(self.temperatures)) == len(self.temperatures)
         unique_deltas = np.unique(self.delta_coefficients)
         assert len(unique_deltas) == len(self.delta_coefficients)
-        assert 1 == 1
 
         self.states = []  # length: ndeltas * ntemperatures
         self.walkers = []  # length: ndeltas * ntemperatures * npara
