@@ -3,11 +3,13 @@ from __future__ import annotations  # necessary for type-guarding class methods
 import logging
 import sys
 from typing import Any, Union
+from pathlib import Path
 
 import numpy as np
 import typeguard
 from parsl.app.app import python_app
 from parsl.data_provider.files import File
+from psiflow.geometry import Geometry
 
 
 @typeguard.typechecked
@@ -140,3 +142,74 @@ def _concatenate(*arrays: np.ndarray) -> np.ndarray:
 
 
 concatenate = python_app(_concatenate, executors=["default_threads"])
+
+
+def _subsample(obj, index):
+    if isinstance(index, (int, slice)):
+        # Handle single integer index or slice
+        return obj[index]
+    elif isinstance(index, str):
+        # Handle string representation of slice
+        if ':' in index:
+            parts = index.split(':')
+            # Convert parts to integers if they are not empty
+            slice_parts = [int(p) if p else None for p in parts]
+            return obj[slice(*slice_parts)]
+        else:
+            raise ValueError(f"Invalid slice string: {index}")
+    else:
+        raise TypeError(
+            "Invalid index type: "
+            + f"{type(index)}. Must be int, slice, list, or iterable."
+        )
+
+
+subsample = python_app(_subsample, executors=["default_threads"])
+
+np_save = python_app(np.save, executors=["default_threads"])
+
+np_arange = python_app(np.arange, executors=["default_threads"])
+
+
+def _getattr_future(obj, attr):
+    if hasattr(obj, attr):
+        return getattr(obj, attr)
+    else:
+        raise ValueError(
+            f"The attribute '{attr}' is not found in the object of type "
+            f"'{type(obj).__name__}'."
+        )
+
+
+getattr_future = python_app(_getattr_future, executors=["default_threads"])
+
+
+def _make_npfuture(*lst):
+    return np.array(lst)
+
+
+make_npfuture = python_app(_make_npfuture, executors=["default_threads"])
+
+
+def _make_lstfuture(*lst):
+    return lst
+
+
+make_lstfuture = python_app(_make_lstfuture, executors=["default_threads"])
+
+
+def _len_future(obj):
+    return len(obj)
+
+
+len_future = python_app(_len_future, executors=["default_threads"])
+
+
+@typeguard.typechecked
+def _save_futgeo(geo: Geometry, path_out: Union[Path, str]):
+    geo.save(path_out)
+
+# Q Sander: why is geo.save not a python_app?
+
+
+save_futgeo = python_app(_save_futgeo, executors=["default_threads"])

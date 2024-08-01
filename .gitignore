@@ -133,8 +133,9 @@ pytest-tmp/
 wandb/
 
 
-# own testfolder
+# own tests
 integration_tests/
+quicktest.py
 
 #vscode
 .vscode/
