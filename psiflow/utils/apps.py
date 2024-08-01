@@ -31,6 +31,8 @@ def _multiply(a, b):
 
 multiply = python_app(_multiply, executors=["default_threads"])
 
+take_mean = python_app(np.mean, executors=["default_threads"])
+
 
 @typeguard.typechecked
 def setup_logger(module_name):
@@ -91,7 +93,11 @@ copy_data_future = python_app(_copy_data_future, executors=["default_threads"])
 
 
 @typeguard.typechecked
-def _copy_app_future(future: Any, inputs: list = [], outputs: list = []) -> Any:
+def _copy_app_future(
+    future: Any,
+    inputs: list = [],
+    outputs: list = []
+) -> Any:
     # inputs/outputs to enforce additional dependencies
     from copy import deepcopy
 

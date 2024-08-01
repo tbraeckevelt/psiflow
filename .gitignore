@@ -131,3 +131,10 @@ dmypy.json
 
 pytest-tmp/
 wandb/
+
+
+# own testfolder
+integration_tests/
+
+#vscode
+.vscode/
