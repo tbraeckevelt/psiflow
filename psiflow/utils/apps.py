@@ -2,7 +2,7 @@ from __future__ import annotations  # necessary for type-guarding class methods
 
 import logging
 import sys
-from typing import Any, Union
+from typing import Any, Union, Tuple
 from pathlib import Path
 
 import numpy as np
@@ -213,3 +213,31 @@ def _save_futgeo(geo: Geometry, path_out: Union[Path, str]):
 
 
 save_futgeo = python_app(_save_futgeo, executors=["default_threads"])
+
+
+@typeguard.typechecked
+def _running_average(arr: np.ndarray, window: int) -> np.ndarray:
+    arr_avg = np.zeros(len(arr)-window+1)
+    for i in range(len(arr)-window+1):
+        arr_avg[i] = np.average(arr[i:(i+window)])
+    return arr_avg
+
+
+running_average = python_app(_running_average, executors=["default_threads"])
+
+
+@typeguard.typechecked
+def _calculate_hist(
+    arr: np.ndarray,
+    bin_size: float,
+    density: bool = True
+) -> Tuple[np.ndarray, np.ndarray]:
+    arr_min = np.floor(np.min(arr)/bin_size)*bin_size
+    arr_max = np.ceil(np.max(arr)/bin_size)*bin_size
+    bin = np.arange(arr_min, arr_max+bin_size, bin_size)
+    hist, _ = np.histogram(arr, bins=bin, density=density)
+    center_bin = running_average(bin, 2)
+    return hist, center_bin
+
+
+calculate_hist = python_app(_calculate_hist, executors=["default_threads"])

@@ -106,7 +106,7 @@ take_error = python_app(_take_error, executors=["default_threads"])
 
 
 @typeguard.typechecked
-class ThermodynamicState_own:
+class ThermodynamicState:
     temperature: float
     natoms: int
     pressure: Optional[float]
@@ -194,7 +194,7 @@ class ThermodynamicState_own:
 
 
 @typeguard.typechecked
-class Integration_own:
+class Integration:
     def __init__(
         self,
         hamiltonian: Hamiltonian,
@@ -247,7 +247,7 @@ class Integration_own:
                         **walker_kwargs,
                     )
                     self.walkers.append(walker)
-                state = ThermodynamicState_own(
+                state = ThermodynamicState(
                     temperature=T,
                     natoms=self.natoms,
                     pressure=self.pressure,
