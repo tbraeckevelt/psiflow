@@ -43,7 +43,7 @@ def perform_integration(
     nblocks: int = 4,
     npara: int = 1,
     timestep: float = 0.5,
-    trial_frequency: int = 10,
+    trial_frequency: Optional[int] = None,
     steps: int = 100,
     step: int = 1,
     calibration: int = 10,
@@ -89,11 +89,12 @@ def perform_integration(
     walkers = integration.create_walkers(
         input_data, timestep=timestep, initialize_by=initialize_by
     )
-    for j in range(npara):
-        replica_exchange(
-            walkers[j:: npara],
-            trial_frequency=trial_frequency
-        )
+    if trial_frequency is not None:
+        for j in range(npara):
+            replica_exchange(
+                walkers[j:: npara],
+                trial_frequency=trial_frequency
+            )
     integration.outputs = sample(
         walkers,
         steps=steps,
