@@ -19,6 +19,19 @@ def get_attribute(obj: Any, *attribute_names: str) -> Any:
     return obj
 
 
+def _getattr_future(obj, attr):
+    if hasattr(obj, attr):
+        return getattr(obj, attr)
+    else:
+        raise ValueError(
+            f"The attribute '{attr}' is not found in the object of type "
+            f"'{type(obj).__name__}'."
+        )
+
+
+getattr_future = python_app(_getattr_future, executors=["default_threads"])
+
+
 @typeguard.typechecked
 def _boolean_or(*args: Union[bool, np.bool_]) -> bool:
     return any(args)
@@ -171,19 +184,6 @@ np_save = python_app(np.save, executors=["default_threads"])
 np_arange = python_app(np.arange, executors=["default_threads"])
 
 
-def _getattr_future(obj, attr):
-    if hasattr(obj, attr):
-        return getattr(obj, attr)
-    else:
-        raise ValueError(
-            f"The attribute '{attr}' is not found in the object of type "
-            f"'{type(obj).__name__}'."
-        )
-
-
-getattr_future = python_app(_getattr_future, executors=["default_threads"])
-
-
 def _make_npfuture(*lst):
     return np.array(lst)
 
@@ -232,12 +232,38 @@ def _calculate_hist(
     bin_size: float,
     density: bool = True
 ) -> Tuple[np.ndarray, np.ndarray]:
+
     arr_min = np.floor(np.min(arr)/bin_size)*bin_size
     arr_max = np.ceil(np.max(arr)/bin_size)*bin_size
     bin = np.arange(arr_min, arr_max+bin_size, bin_size)
+
     hist, _ = np.histogram(arr, bins=bin, density=density)
     center_bin = running_average(bin, 2)
     return hist, center_bin
 
 
 calculate_hist = python_app(_calculate_hist, executors=["default_threads"])
+
+
+@typeguard.typechecked
+def _get_lowest(opt_geos: list[Geometry]) -> Geometry:
+    """
+    Returns the geometry with the lowest energy from a list of geometries.
+
+    Args:
+        opt_geos (list[Geometry]): A list of Geometry objects.
+
+    Returns:
+        Geometry: The geometry with the lowest energy.
+    """
+    
+    min_e = opt_geos[0].energy
+    min_g = opt_geos[0]
+    for geo in opt_geos:
+        if geo.energy < min_e:
+            min_g = geo
+            min_e = geo.energy
+    return min_g
+
+
+get_lowest = python_app(_get_lowest, executors=["default_threads"])

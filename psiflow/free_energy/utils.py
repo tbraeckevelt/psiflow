@@ -2,7 +2,7 @@ from psiflow.sampling.walker import replica_exchange
 from psiflow.sampling import sample
 from psiflow.free_energy.integration import Integration
 import typeguard
-from typing import Optional
+from typing import Optional, Union
 from psiflow.data import Dataset
 from psiflow.hamiltonians import Hamiltonian
 
@@ -34,7 +34,7 @@ def create_temperatures(
 def perform_integration(
     hamiltonian: Hamiltonian,
     input_data: Dataset,
-    temperatures: Optional[np.ndarray] = None,
+    temperatures: Union[list[float], np.ndarray],
     delta_hamil: Optional[float] = None,
     delta_coefficients: Optional[float] = None,
     pressure: Optional[float] = None,

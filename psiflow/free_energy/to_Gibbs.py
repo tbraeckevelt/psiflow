@@ -58,26 +58,45 @@ def get_scaled_data(dataset: Dataset, *args) -> Dataset:
 
 @typeguard.typechecked
 def _to_Gibbs_correction(
-    ave_cell: np.ndarray,
+    cell: np.ndarray,
     NPT_geos: list[Geometry],
     temperature: float,
     pressure: float,
     bin_size: float = 0.1,  # bin size in Angstrom^3
     window: int = 7,
 ) -> float:
+    """
+    Calculates the normalized Gibbs correction term.
+    G(P,T)/(k_B*T) = F(V,T)/(k_B*T) + correction_term_norm
+    correction_term_norm = P*V/(k_B*T) + log(prob(V|P,T))
+
+    Args:
+        cell (np.ndarray): The cell of the NVT system.
+        NPT_geos (list[Geometry]): List of geometries at different NPT steps.
+        temperature (float): The temperature of the system.
+        pressure (float): The pressure of the system.
+        bin_size (float, optional): The bin size in Angstrom^3 for
+                                    histogram calculation. Defaults to 0.1.
+        window (int, optional): The window size for running average.
+                                Defaults to 7.
+
+    Returns:
+        float: The normalized Gibbs correction term.
+
+    """
     vol_lst = [np.linalg.det(geo.cell) for geo in NPT_geos]
     hist, center_bin = _calculate_hist(vol_lst, bin_size)
     run_hist = _running_average(hist, window)
     run_bin = _running_average(center_bin, window)
-    ave_vol = np.linalg.det(ave_cell)
-    min_diff = np.abs(ave_vol - run_bin[0])
+    vol = np.linalg.det(cell)
+    min_diff = np.abs(vol - run_bin[0])
     hist_opt = run_hist[0]
     for hist_val, bin_val in zip(run_hist, run_bin):
-        diff_vol = np.abs(ave_vol - bin_val)
+        diff_vol = np.abs(vol - bin_val)
         if diff_vol <= min_diff:
             hist_opt = hist_val
             min_diff = diff_vol
-    return pressure * ave_vol / (kB*temperature) + np.log(hist_opt)
+    return pressure * vol / (kB*temperature) + np.log(hist_opt)
 
 
 to_Gibbs_correction = python_app(

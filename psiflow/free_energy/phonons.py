@@ -7,7 +7,8 @@ import numpy as np
 import parsl
 import typeguard
 from ase.units import Bohr, Ha, J, _c, _hplanck, _k, kB, second
-from parsl.app.app import bash_app, python_app
+from ase import Atoms
+from parsl.app.app import bash_app, python_app, join_app
 from parsl.dataflow.futures import AppFuture
 
 import psiflow
@@ -15,8 +16,9 @@ from psiflow.data import Dataset
 from psiflow.geometry import Geometry, mass_weight
 from psiflow.hamiltonians import Hamiltonian
 from psiflow.sampling.optimize import setup_forces, setup_sockets
-from psiflow.utils.apps import multiply
+from psiflow.utils.apps import multiply, make_lstfuture
 from psiflow.utils.io import load_numpy, save_xml
+from psiflow.sampling.optimize import optimize
 
 
 @typeguard.typechecked
@@ -57,7 +59,7 @@ def _harmonic_free_energy(
 
 
 harmonic_free_energy = python_app(_harmonic_free_energy, executors=["default_threads"])
-
+    
 
 @typeguard.typechecked
 def setup_motion(
@@ -203,3 +205,104 @@ def compute_harmonic(
         parsl_resource_specification=resources,
     )
     return multiply(load_numpy(inputs=[result.outputs[0]]), Ha / Bohr**2)
+
+
+@typeguard.typechecked
+def positive_definite(
+    hessian: np.ndarray,
+    geometry: Geometry,
+    threshold: float = 1
+) -> bool:
+    """
+    Check if the Hessian matrix is positive definite based on the
+    computed frequencies.
+
+    Args:
+        hessian (np.ndarray): The Hessian matrix.
+        geometry (Geometry): The geometry object.
+        threshold (float, optional): The threshold value in invcm. Default=1.
+
+    Returns:
+        bool: True if the Hessian matrix is positive definite, False otherwise.
+    """
+    frequencies = _compute_frequencies(hessian, geometry)
+    threshold_ase = threshold / second * (100 * _c)  # from invcm to ASE
+    frequencies = frequencies[np.abs(frequencies) > threshold_ase]
+    if all(frequencies > 0):
+        return True
+    else:
+        return False
+
+
+@typeguard.typechecked
+def perturb(geometry: Geometry, scale: float) -> Geometry:
+    """
+    Perturbs the atomic positions in the given geometry by adding random noise.
+
+    Args:
+        geometry (Geometry): The input geometry object.
+        scale (float): The scale factor for the random perturbation.
+
+    Returns:
+        Geometry: A new geometry object with perturbed positions.
+    """
+    random_perturbation = np.random.normal(
+        0, scale, geometry.per_atom.positions.shape
+    )
+    new_positions = geometry.per_atom.positions[:] + random_perturbation
+    return Geometry.from_atoms(
+        Atoms(
+            numbers=geometry.per_atom.numbers,
+            positions=new_positions,
+            pbc=True,
+            cell=geometry.cell
+        )
+    )
+
+
+@typeguard.typechecked
+@join_app
+def make_positive_definite(
+    attempt: int,
+    geometry: Geometry,
+    hessian: np.ndarray,
+    hamiltonian: Hamiltonian,
+    max_attempt: int = 10,
+) -> AppFuture:
+    """
+    Recursively attempts to make the Hessian matrix positive definite by
+    perturbing the geometry (with increasing amplitude) and optimizing it.
+
+    Parameters:
+        attempt (int): The current attempt number.
+        geometry (Geometry): The initial geometry.
+        hessian (np.ndarray): The Hessian matrix.
+        hamiltonian (Hamiltonian): The Hamiltonian object.
+        max_attempt (int, optional): Maximum number of attempts. Default=10.
+
+    Returns:
+        AppFuture: The future object representing the result of the operation.
+    """
+    assert attempt < max_attempt, "The maximum number of attempts is reached."
+    if positive_definite(hessian, geometry):
+        return make_lstfuture(geometry, hessian)
+    else:
+        new_geometry = perturb(geometry, 0.01*attempt)
+        opt_geometry = optimize(
+            new_geometry,
+            hamiltonian,
+            ftol=1e-4,
+            steps=4000,
+            mode='bfgstrm'
+        )
+        new_hessian = compute_harmonic(
+            opt_geometry,
+            hamiltonian,
+            pos_shift=0.001
+        )
+        return make_positive_definite(
+            attempt+1,
+            opt_geometry,
+            new_hessian,
+            hamiltonian
+        )
