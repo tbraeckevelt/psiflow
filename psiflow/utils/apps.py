@@ -256,7 +256,7 @@ def _get_lowest(opt_geos: list[Geometry]) -> Geometry:
     Returns:
         Geometry: The geometry with the lowest energy.
     """
-    
+
     min_e = opt_geos[0].energy
     min_g = opt_geos[0]
     for geo in opt_geos:
