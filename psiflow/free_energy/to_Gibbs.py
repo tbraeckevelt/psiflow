@@ -1,6 +1,7 @@
 from ase import Atoms
 import psiflow
 from psiflow.data.dataset import Dataset, write_frames
+from parsl.dataflow.futures import AppFuture
 from psiflow.geometry import Geometry
 from psiflow.utils.apps import _running_average, _calculate_hist
 from parsl.app.app import join_app, python_app
@@ -39,7 +40,7 @@ def _get_scaled_data(
     input_geos: list[Geometry],
     ave_cell: np.ndarray,
     outputs: list = []
-) -> Dataset:
+) -> AppFuture:
     scaled_geos_lst = []
     for geo in input_geos:
         scaled_geos_lst.append(get_scaled_geo(geo, ave_cell))

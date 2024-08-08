@@ -35,8 +35,8 @@ def perform_integration(
     hamiltonian: Hamiltonian,
     input_data: Dataset,
     temperatures: Union[list[float], np.ndarray],
-    delta_hamil: Optional[float] = None,
-    delta_coefficients: Optional[float] = None,
+    delta_hamil: Optional[Hamiltonian] = None,
+    delta_coefficients: Union[list[float], np.ndarray, None] = None,
     pressure: Optional[float] = None,
     initialize_by: str = "quench",
     natoms: Optional[int] = None,
@@ -87,7 +87,10 @@ def perform_integration(
         npara=npara,
     )
     walkers = integration.create_walkers(
-        input_data, timestep=timestep, initialize_by=initialize_by
+        input_data,
+        timestep=timestep,
+        initialize_by=initialize_by,
+        pressure=pressure
     )
     if trial_frequency is not None:
         for j in range(npara):

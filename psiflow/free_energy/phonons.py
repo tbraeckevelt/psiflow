@@ -260,8 +260,8 @@ def perturb(geometry: Geometry, scale: float) -> Geometry:
     )
 
 
-@typeguard.typechecked
 @join_app
+@typeguard.typechecked
 def make_positive_definite(
     attempt: int,
     geometry: Geometry,

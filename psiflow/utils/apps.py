@@ -3,7 +3,6 @@ from __future__ import annotations  # necessary for type-guarding class methods
 import logging
 import sys
 from typing import Any, Union, Tuple
-from pathlib import Path
 
 import numpy as np
 import typeguard
@@ -181,7 +180,12 @@ subsample = python_app(_subsample, executors=["default_threads"])
 
 np_save = python_app(np.save, executors=["default_threads"])
 
-np_arange = python_app(np.arange, executors=["default_threads"])
+
+def _np_arange(*args, dtype=None, like=None):
+    return np.arange(*args, dtype=dtype, like=like)
+
+
+np_arange = python_app(_np_arange, executors=["default_threads"])
 
 
 def _make_npfuture(*lst):
@@ -206,17 +210,7 @@ len_future = python_app(_len_future, executors=["default_threads"])
 
 
 @typeguard.typechecked
-def _save_futgeo(geo: Geometry, path_out: Union[Path, str]):
-    geo.save(path_out)
-
-# Q Sander: why is geo.save not a python_app?
-
-
-save_futgeo = python_app(_save_futgeo, executors=["default_threads"])
-
-
-@typeguard.typechecked
-def _running_average(arr: np.ndarray, window: int) -> np.ndarray:
+def _running_average(arr: Union[np.ndarray, list], window: int) -> np.ndarray:
     arr_avg = np.zeros(len(arr)-window+1)
     for i in range(len(arr)-window+1):
         arr_avg[i] = np.average(arr[i:(i+window)])
@@ -228,7 +222,7 @@ running_average = python_app(_running_average, executors=["default_threads"])
 
 @typeguard.typechecked
 def _calculate_hist(
-    arr: np.ndarray,
+    arr: Union[np.ndarray, list],
     bin_size: float,
     density: bool = True
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -238,7 +232,7 @@ def _calculate_hist(
     bin = np.arange(arr_min, arr_max+bin_size, bin_size)
 
     hist, _ = np.histogram(arr, bins=bin, density=density)
-    center_bin = running_average(bin, 2)
+    center_bin = _running_average(bin, 2)
     return hist, center_bin
 
 
