@@ -2,7 +2,7 @@
 ![psiflow](./docs/logo_dark.png#gh-dark-mode-only)
 
 
-![License](https://flat.badgen.net/github/license/molmod/psiflow)
+![License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)
 [![Docs](https://flat.badgen.net/static/docs/passing/green)](https://molmod.github.io/psiflow)
 [![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fmolmod%2Fpsiflow%2Fbadge%3Fref%3Dmain&style=flat-square)](https://actions-badge.atrox.dev/molmod/psiflow/goto?ref=main)
 ![Python](https://flat.badgen.net/static/python/3.10%20|%203.11/blue)
@@ -44,7 +44,7 @@ python -c 'import psiflow; psiflow.setup_slurm_config()'
 Example configuration files for [LUMI](https://lumi-supercomputer.eu/), [MeluXina](https://luxembourg.public.lu/en/invest/innovation/meluxina-supercomputer.html), or [VSC](https://www.vscentrum.be/) can be found [here](https://github.com/molmod/psiflow/tree/main/configs).
 No additional software compilation is required since all of the heavy lifting (CP2K/ORCA/GPAW, PyTorch model training, i-PI dynamics) is executed within preconfigured [Apptainer](https://apptainer.org/)/[Singularity](https://sylabs.io/singularity/) containers which are production-ready for most HPCs.
 
-That's it! Contrary to frameworks like pyiron or aiida, psiflow does not require any databases or annoying web servers.
+That's it! Contrary to frameworks like pyiron or aiida, psiflow does not require any databases or web servers.
 The only requirement is that you set up a Python environment and provide a `config.yaml`.
 
 [**EXAMPLES**](https://github.com/molmod/psiflow/tree/main/examples)
@@ -56,7 +56,7 @@ The only requirement is that you set up a Python environment and provide a `conf
 
 **Where do I start?**
 
-Take a brief look at the [examples](https://github.com/molmod/psiflow/examples/) or the
+Take a brief look at the [examples](https://github.com/molmod/psiflow/tree/main/examples) or the
 [documentation](https://molmod.github.io/psiflow) to get an idea for psiflow's
 capabilities. Next, head over to the [setup & configuration](https://molmod.github.io/psiflow/configuration/) section of the docs to get started!
 
@@ -74,7 +74,7 @@ SLURM/PBSPro/SGE). If you're not sure, ask your system administrators or open an
 
 **Can I use VASP with it?**
 
-You cannot automate VASP calculations with it, but in 99% of cases there is either no need
+You cannot automate VASP calculations with it, but in 83% of cases there is either no need
 to use VASP, or it's very easy to quickly perform the VASP part manually, outside of psiflow,
 and do everything else (data generation, ML potential training, sampling) with psiflow.
 Open an issue if you're not sure how to do this.
@@ -105,7 +105,7 @@ order:
 4. Check the actual 'jobscripts' that were generated and which were submitted to the
    cluster. Quite often, there can be a spelling mistake in e.g. the compute project you
    are using, or you are requesting a resource on a partition that is not available.
-   These jobscripts (and there output and error) can be found under
+   These jobscripts (and their output and error) can be found under
    `psiflow_internal/000/submit_scripts/`.
 
 **Where do these container images come from?**

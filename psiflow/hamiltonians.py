@@ -34,6 +34,23 @@ class Hamiltonian(Computable):
     outputs: ClassVar[tuple] = ("energy", "forces", "stress")
     batch_size = 1000
 
+    def compute(
+        self,
+        arg: Union[Dataset, AppFuture[list], list, AppFuture, Geometry],
+        *outputs: Optional[str],
+        batch_size: Optional[int] = -1,  # if -1: take class default
+    ) -> Union[list[AppFuture], AppFuture]:
+        if len(outputs) == 0:
+            outputs = tuple(self.__class__.outputs)
+        if batch_size == -1:
+            batch_size = self.__class__.batch_size
+        return compute(
+            arg,
+            self.app,
+            outputs_=outputs,
+            batch_size=batch_size,
+        )
+
     def __eq__(self, hamiltonian: Hamiltonian) -> bool:
         raise NotImplementedError
 
@@ -398,7 +415,7 @@ class MACEHamiltonian(Hamiltonian):
             return False
         if len(self.atomic_energies) != len(hamiltonian.atomic_energies):
             return False
-        for symbol, energy in self.atomic_energies:
+        for symbol, energy in self.atomic_energies.items():
             if not np.allclose(
                 energy,
                 hamiltonian.atomic_energies[symbol],

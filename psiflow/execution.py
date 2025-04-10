@@ -6,6 +6,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from threading import Lock
 
 # see https://stackoverflow.com/questions/59904631/python-class-constants-in-dataclasses
 from typing import Any, Optional, Union
@@ -15,7 +16,6 @@ import psutil
 import pytimeparse
 import typeguard
 import yaml
-from parsl.addresses import address_by_hostname
 from parsl.config import Config
 from parsl.data_provider.files import File
 from parsl.executors import (  # WorkQueueExecutor,
@@ -132,6 +132,8 @@ class ExecutionDefinition:
             provider_cls = SlurmProvider
             provider_kwargs = kwargs.pop("slurm")  # do not allow empty dict
             provider_kwargs["init_blocks"] = 0
+            if "exclusive" not in provider_kwargs:
+                provider_kwargs["exclusive"] = False
         else:
             provider_cls = LocalProvider  # noqa: F405
             provider_kwargs = kwargs.pop("local", {})
@@ -419,6 +421,7 @@ class ExecutionContext:
         self.definitions = {d.name: d for d in definitions}
         assert len(self.definitions) == len(definitions)
         self.file_index = {}
+        self.lock = Lock()
         parsl.load(config)
 
     def __enter__(self):
@@ -430,38 +433,38 @@ class ExecutionContext:
         parsl.dfk().cleanup()
 
     def new_file(self, prefix: str, suffix: str) -> File:
-        assert prefix[-1] == "_"
-        assert suffix[0] == "."
-        key = (prefix, suffix)
-        if key not in self.file_index.keys():
-            self.file_index[key] = 0
-        padding = 6
-        assert self.file_index[key] < (16**padding)
-        identifier = "{0:0{1}x}".format(self.file_index[key], padding)
-        self.file_index[key] += 1
-        return File(str(self.path / (prefix + identifier + suffix)))
+        with self.lock:
+            assert prefix[-1] == "_"
+            assert suffix[0] == "."
+            key = (prefix, suffix)
+            if key not in self.file_index.keys():
+                self.file_index[key] = 0
+            padding = 6
+            assert self.file_index[key] < (16**padding)
+            identifier = "{0:0{1}x}".format(self.file_index[key], padding)
+            self.file_index[key] += 1
+            return File(str(self.path / (prefix + identifier + suffix)))
 
     @classmethod
     def from_config(
         cls,
-        path: Optional[Union[str, Path]] = None,
         parsl_log_level: str = "WARNING",
-        usage_tracking: bool = True,
+        usage_tracking: int = 3,
         retries: int = 2,
         strategy: str = "simple",
         max_idletime: float = 20,
         internal_tasks_max_threads: int = 10,
         default_threads: int = 4,
-        htex_address: Optional[str] = None,
+        htex_address: str = "127.0.0.1",
         zip_staging: Optional[bool] = None,
         container_uri: Optional[str] = None,
         container_engine: str = "apptainer",
         container_addopts: str = " --no-eval -e --no-mount home -W /tmp --writable-tmpfs",
         container_entrypoint: str = "/opt/entry.sh",
+        make_symlinks: bool = True,
         **kwargs,
     ) -> ExecutionContext:
-        if path is None:
-            path = Path.cwd().resolve() / "psiflow_internal"
+        path = Path.cwd().resolve() / "psiflow_internal"
         psiflow.resolve_and_check(path)
         if path.exists():
             shutil.rmtree(path)
@@ -488,7 +491,7 @@ class ExecutionContext:
         )
         model_training = ModelTraining.from_config(
             container=container,
-            **kwargs.pop("ModelTraining", {}),
+            **kwargs.pop("ModelTraining", {'gpu': True}),  # avoid triggering assertion
         )
         reference_evaluations = []  # reference evaluations might be class specific
         for key in list(kwargs.keys()):
@@ -509,14 +512,12 @@ class ExecutionContext:
             launcher = WrappedLauncher(prepend=container_launch_command(**container))
         else:
             launcher = SimpleLauncher()
-        if htex_address is None:
-            htex_address = address_by_hostname()
         htex = HighThroughputExecutor(
             label="default_htex",
             address=htex_address,
             working_dir=str(path / "default_htex"),
             cores_per_worker=1,
-            max_workers=default_threads,
+            max_workers_per_node=default_threads,
             cpu_affinity="none",
             provider=LocalProvider(launcher=launcher, init_blocks=0),  # noqa: F405
         )
@@ -551,7 +552,20 @@ class ExecutionContext:
             internal_tasks_max_threads=internal_tasks_max_threads,
             # std_autopath=std_autopath,
         )
-        return ExecutionContext(config, definitions, path / "context_dir")
+        context = ExecutionContext(config, definitions, path / "context_dir")
+
+        if make_symlinks:
+            src, dest = Path.cwd() / "psiflow_log", path / "parsl.log"
+            _create_symlink(src, dest)
+            src, dest = (
+                Path.cwd() / "psiflow_submit_scripts",
+                path / "000" / "submit_scripts",
+            )
+            _create_symlink(src, dest, is_dir=True)
+            src, dest = Path.cwd() / "psiflow_task_logs", path / "000" / "task_logs"
+            _create_symlink(src, dest, is_dir=True)
+
+        return context
 
 
 class ExecutionContextLoader:
@@ -576,10 +590,6 @@ class ExecutionContextLoader:
                         "use_threadpool": True,
                     },
                 }
-                path = Path.cwd() / ".psiflow_internal"
-                if path.exists():
-                    shutil.rmtree(path)
-                psiflow_config["path"] = path
             else:
                 assert len(sys.argv) == 2
                 path_config = psiflow.resolve_and_check(Path(sys.argv[1]))
@@ -669,3 +679,14 @@ wait
 class MyWorkQueueExecutor(WorkQueueExecutor):
     def _get_launch_command(self, block_id):
         return self.worker_command
+
+
+def _create_symlink(src: Path, dest: Path, is_dir: bool = False) -> None:
+    """Create or replace symbolic link"""
+    if src.is_symlink():
+        src.unlink()
+    if is_dir:
+        dest.mkdir(parents=True, exist_ok=True)
+    else:
+        dest.touch(exist_ok=True)
+    src.symlink_to(dest, target_is_directory=is_dir)

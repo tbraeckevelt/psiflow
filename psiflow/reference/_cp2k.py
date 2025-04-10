@@ -17,6 +17,7 @@ from parsl.app.app import bash_app, python_app
 import psiflow
 from psiflow.geometry import Geometry, NullState
 from psiflow.reference.reference import Reference
+from psiflow.utils import TMP_COMMAND, CD_COMMAND
 
 logger = logging.getLogger(__name__)  # logging per module
 
@@ -66,6 +67,12 @@ def set_global_section(cp2k_input_dict: dict, properties: tuple):
     if "global" not in cp2k_input_dict:
         cp2k_input_dict["global"] = {}
     global_dict = cp2k_input_dict["global"]
+
+    # override low/silent print levels
+    level = global_dict.pop("print_level", "MEDIUM")
+    if level in ["SILENT", "LOW"]:
+        global_dict["print_level"] = "MEDIUM"
+
     if properties == ("energy",):
         global_dict["run_type"] = "ENERGY"
     elif properties == ("energy", "forces"):
@@ -111,7 +118,6 @@ def parse_cp2k_output(
             energy = float(line.split()[-1]) * Ha
     if energy is None:
         return NullState
-    # atoms.reference_status = True
     geometry.energy = energy
     geometry.per_atom.forces[:] = np.nan
 
@@ -130,20 +136,15 @@ def parse_cp2k_output(
             forces[j, :] = np.array([float(f) for f in line.split()[3:6]])
         forces *= Ha / Bohr
         geometry.per_atom.forces[:] = forces
-    # atoms.info.pop("stress", None)  # remove if present for some reason
     geometry.stress = None
     return geometry
 
 
-# typeguarding for some reason incompatible with WQ
-def cp2k_singlepoint_pre(
+def _prepare_input(
     geometry: Geometry,
     cp2k_input_dict: dict = {},
     properties: tuple = (),
-    cp2k_command: str = "",
-    stdout: str = "",
-    stderr: str = "",
-    parsl_resource_specification: Optional[dict] = None,
+    outputs: list = [],
 ):
     from psiflow.reference._cp2k import (
         dict_to_str,
@@ -156,18 +157,24 @@ def cp2k_singlepoint_pre(
     if "forces" in properties:
         cp2k_input_dict["force_eval"]["print"] = {"FORCES": {}}
     cp2k_input_str = dict_to_str(cp2k_input_dict)
+    with open(outputs[0], "w") as f:
+        f.write(cp2k_input_str)
 
-    # see https://unix.stackexchange.com/questions/30091/fix-or-alternative-for-mktemp-in-os-x
-    tmp_command = 'mytmpdir=$(mktemp -d 2>/dev/null || mktemp -d -t "mytmpdir");'
-    cd_command = "cd $mytmpdir;"
-    write_command = 'echo "{}" > cp2k.inp;'.format(cp2k_input_str)
-    command_list = [
-        tmp_command,
-        cd_command,
-        write_command,
-        cp2k_command,
-    ]
-    return " ".join(command_list)
+
+prepare_input = python_app(_prepare_input, executors=["default_threads"])
+
+
+# typeguarding for some reason incompatible with WQ
+def cp2k_singlepoint_pre(
+    cp2k_command: str = "",
+    stdout: str = "",
+    stderr: str = "",
+    inputs: list = [],
+    parsl_resource_specification: Optional[dict] = None,
+):
+    cp_command = f"cp {inputs[0].filepath} cp2k.inp"
+    command_list = [TMP_COMMAND, CD_COMMAND, cp_command, cp2k_command]
+    return " && ".join(command_list)
 
 
 @typeguard.typechecked
@@ -178,9 +185,6 @@ def cp2k_singlepoint_post(
 ) -> Geometry:
     from psiflow.geometry import NullState, new_nullstate
     from psiflow.reference._cp2k import parse_cp2k_output
-
-    if geometry == NullState:
-        return NullState.copy()  # copy?
 
     with open(inputs[0], "r") as f:
         cp2k_output_str = f.read()
@@ -221,13 +225,26 @@ class CP2K(Reference):
         app_pre = bash_app(cp2k_singlepoint_pre, executors=[self.executor])
         app_post = python_app(cp2k_singlepoint_post, executors=["default_threads"])
 
-        self.app_pre = partial(
-            app_pre,
-            cp2k_input_dict=self.cp2k_input_dict,
-            properties=tuple(self.outputs),
-            cp2k_command=cp2k_command,
-            parsl_resource_specification=wq_resources,
-        )
+        # create wrapped pre app which first parses the input file and writes it to
+        # disk, then call the actual bash app with the input file as a DataFuture dependency
+        # This is necessary because for very large structures, the size of the cp2k input
+        # file is too long to pass as an argument in a command line
+        def wrapped_app_pre(geometry, stdout: str, stderr: str):
+            future = prepare_input(
+                geometry,
+                cp2k_input_dict=copy.deepcopy(self.cp2k_input_dict),
+                properties=tuple(self.outputs),
+                outputs=[psiflow.context().new_file("cp2k_", ".inp")],
+            )
+            return app_pre(
+                cp2k_command=cp2k_command,
+                stdout=stdout,
+                stderr=stderr,
+                inputs=[future.outputs[0]],
+                parsl_resource_specification=wq_resources,
+            )
+
+        self.app_pre = wrapped_app_pre
         self.app_post = partial(
             app_post,
             properties=tuple(self.outputs),

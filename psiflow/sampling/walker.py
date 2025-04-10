@@ -49,7 +49,7 @@ class Walker:
     state: Union[Geometry, AppFuture, None]
     temperature: Optional[float]
     pressure: Optional[float]
-    volume_constrained: bool
+    masses: Union[np.ndarray, float, None]
     nbeads: int
     timestep: float
     coupling: Optional[Coupling]
@@ -63,7 +63,7 @@ class Walker:
         state: Union[Geometry, AppFuture, None] = None,
         temperature: Optional[float] = 300,
         pressure: Optional[float] = None,
-        volume_constrained: bool = False,
+        masses: Union[np.ndarray, float, None] = None,
         nbeads: int = 1,
         timestep: float = 0.5,
         metadynamics: Optional[Metadynamics] = None,
@@ -82,7 +82,13 @@ class Walker:
 
         self.temperature = temperature
         self.pressure = pressure
-        self.volume_constrained = volume_constrained
+
+        if isinstance(masses, (float, int)):
+            masses *= self.start.atomic_masses
+        self.masses = masses
+        if self.masses is not None:
+            assert len(self.masses) == len(self.start), "Masses do not match number of atoms"
+
         self.nbeads = nbeads
         self.timestep = timestep
 
@@ -111,6 +117,7 @@ class Walker:
                 state=self.state,
                 temperature=self.temperature,
                 pressure=self.pressure,
+                masses=self.masses,
                 nbeads=self.nbeads,
                 timestep=self.timestep,
                 metadynamics=metadynamics,

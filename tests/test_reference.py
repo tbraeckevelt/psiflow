@@ -15,6 +15,9 @@ from psiflow.reference._cp2k import dict_to_str, parse_cp2k_output, str_to_dict
 @pytest.fixture
 def simple_cp2k_input():
     return """
+&GLOBAL
+    PRINT_LEVEL LOW
+&END GLOBAL
 &FORCE_EVAL
    METHOD Quickstep
    &PRINT
@@ -178,8 +181,10 @@ def test_reference_d3(context, dataset, tmp_path):
     assert state.energy is not None
     assert state.energy < 0.0  # dispersion is attractive
 
-    data = dataset[:3].evaluate(reference)
-    energy = reference.compute(dataset[:3], "energy")
+    subset = dataset[:3]
+    data = subset.evaluate(reference)
+    energy = reference.compute(subset, "energy")
+    forces = reference.compute(subset, "forces")
 
     assert np.allclose(
         data.get("energy").result(),
@@ -190,6 +195,7 @@ def test_reference_d3(context, dataset, tmp_path):
         0.0,
     )
 
+    assert len(forces.result().shape) == 3
 
 @pytest.mark.filterwarnings("ignore:Original input file not found")
 def test_cp2k_success(context, simple_cp2k_input):
@@ -317,10 +323,23 @@ def test_cp2k_failure(context, tmp_path):
     evaluated = evaluate(geometry, reference)
     assert isinstance(evaluated, AppFuture)
     state = evaluated.result()
-    assert state == NullState
+    assert state.energy is None
+    assert np.all(np.isnan(state.per_atom.forces))
     with open(state.stdout, "r") as f:
         log = f.read()
     assert "ABORT" in log  # verify error is captured
+
+
+def test_cp2k_memory(context, simple_cp2k_input):
+    reference = CP2K(simple_cp2k_input)
+    geometry = Geometry.from_data(
+        numbers=np.ones(4000),
+        positions=np.random.uniform(0, 20, size=(4000, 3)),
+        cell=20 * np.eye(3),  # box way too large
+    )
+    energy, forces = reference.compute(geometry)
+    energy, forces = energy.result(), forces.result()
+    assert np.all(np.isnan(energy))
 
 
 @pytest.mark.filterwarnings("ignore:Original input file not found")
@@ -442,4 +461,4 @@ def test_gpaw_single(dataset, dataset_h2):
     assert gpaw.compute_atomic_energy("Zr", box_size=9).result() == 0.0
 
     gpaw = GPAW(askdfj="asdfk")  # invalid input
-    assert evaluate(dataset_h2[1], gpaw).result() == NullState
+    assert evaluate(dataset_h2[1], gpaw).result().energy is None

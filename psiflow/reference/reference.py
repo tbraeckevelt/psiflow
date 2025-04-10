@@ -13,14 +13,14 @@ from parsl.dataflow.futures import AppFuture
 import psiflow
 from psiflow.data import Computable, Dataset
 from psiflow.geometry import Geometry, NullState
-from psiflow.utils.apps import copy_app_future
+from psiflow.utils.apps import copy_app_future, unpack_i
 
 logger = logging.getLogger(__name__)  # logging per module
 
 
 @typeguard.typechecked
 def _extract_energy(state: Geometry):
-    if state == NullState:
+    if state.energy is None:
         return 1e10
     else:
         return state.energy
@@ -40,6 +40,24 @@ def get_minimum_energy(element, configs, *energies):
     return copy_app_future(energy)
 
 
+@typeguard.typechecked
+def _nan_if_unsuccessful(
+    geometry: Geometry,
+    result: Geometry,
+) -> Geometry:
+    if result == NullState:
+        geometry.energy = None
+        geometry.per_atom.forces[:] = np.nan
+        geometry.per_atom.stress = None
+        geometry.stdout = result.stdout
+        return geometry
+    else:
+        return result
+
+
+nan_if_unsuccessful = python_app(_nan_if_unsuccessful, executors=["default_threads"])
+
+
 @join_app
 @typeguard.typechecked
 def evaluate(
@@ -54,10 +72,11 @@ def evaluate(
             stdout=parsl.AUTO_LOGNAME,
             stderr=parsl.AUTO_LOGNAME,
         )
-        return reference.app_post(
-            geometry=geometry,
+        result = reference.app_post(
+            geometry=geometry.copy(),
             inputs=[future.stdout, future.stderr, future],
         )
+        return nan_if_unsuccessful(geometry, result)
 
 
 @join_app
@@ -70,7 +89,7 @@ def compute_dataset(
     from psiflow.data.utils import extract_quantities
 
     geometries = dataset.geometries()  # read it once
-    evaluated = [evaluate(geometries[i], reference) for i in range(length)]
+    evaluated = [evaluate(unpack_i(geometries, i), reference) for i in range(length)]
     future = extract_quantities(
         tuple(reference.outputs),
         None,
@@ -86,7 +105,17 @@ class Reference(Computable):
     outputs: tuple
     batch_size: ClassVar[int] = 1  # not really used
 
-    def compute(self, dataset: Dataset, *outputs: Optional[Union[str, tuple]]):
+    def compute(
+        self,
+        arg: Union[Dataset, Geometry, AppFuture, list],
+        *outputs: Optional[Union[str, tuple]],
+    ):
+        if isinstance(arg, Dataset):
+            dataset = arg
+        elif isinstance(arg, list):
+            dataset = Dataset(arg)
+        elif isinstance(arg, AppFuture) or isinstance(arg, Geometry):
+            dataset = Dataset([arg])
         compute_outputs = compute_dataset(dataset, dataset.length(), self)
         if len(outputs) == 0:
             outputs_ = tuple(self.outputs)
@@ -96,12 +125,12 @@ class Reference(Computable):
         for output in outputs_:
             if output not in self.outputs:
                 raise ValueError("output {} not in {}".format(output, self.outputs))
-            index = outputs_.index(output)
+            index = self.outputs.index(output)
             to_return.append(compute_outputs[index])
         if len(outputs_) == 1:
             return to_return[0]
         else:
-            return tuple(to_return)
+            return to_return
 
     def compute_atomic_energy(self, element, box_size=None):
         energies = []

@@ -40,11 +40,10 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-PSIFLOW_VERSION="main"
-PARSL_VERSION="2024.07.08"
-CCTOOLS_VERSION=7.11.1
+PSIFLOW_VERSION="v4.0.0"
+CCTOOLS_VERSION=7.14.0
 PLUMED_VERSION=2.9.0
-GPU_LIBRARIES=("rocm5.6" "cu118")
+GPU_LIBRARIES=("rocm6.2" "cu118")
 
 # build model
 if [ "$psiflow" = "true" ]; then
@@ -60,9 +59,12 @@ if [ "$psiflow" = "true" ]; then
 			-t ghcr.io/molmod/$TAG \
 			-f Dockerfile . # test
 		if [ "$build_sif" = "true" ]; then
+			export TMPDIR=$(pwd)/tmp
+			mkdir -p $TMPDIR
 			apptainer build -F $TAG.sif docker-daemon:ghcr.io/molmod/$TAG
 			apptainer push $TAG.sif oras://ghcr.io/molmod/$TAG
 			rm $TAG.sif
+			rm -rf $TMPDIR
 		fi
 	done
 fi
