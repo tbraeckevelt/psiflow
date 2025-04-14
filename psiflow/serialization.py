@@ -256,6 +256,7 @@ def deserialize(data_str: str, custom_cls: Optional[list] = None):
     from psiflow.hamiltonians import (
         EinsteinCrystal,
         Harmonic,
+        ExtendedHarmonic,
         MACEHamiltonian,
         MixtureHamiltonian,
         PlumedHamiltonian,
@@ -282,6 +283,7 @@ def deserialize(data_str: str, custom_cls: Optional[list] = None):
         EinsteinCrystal,
         PlumedHamiltonian,
         Harmonic,
+        ExtendedHarmonic,
         MixtureHamiltonian,
         Metadynamics,
         OrderParameter,

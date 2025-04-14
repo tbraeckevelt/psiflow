@@ -17,6 +17,7 @@ from psiflow.data import Computable, Dataset, aggregate_multiple, compute
 from psiflow.functions import (
     EinsteinCrystalFunction,
     HarmonicFunction,
+    ExtendedHarmonicFunction,
     MACEFunction,
     PlumedFunction,
     ZeroFunction,
@@ -359,6 +360,63 @@ class Harmonic(Hamiltonian):
             )
         else:
             equal = hamiltonian.hessian == self.hessian
+
+        if not equal:
+            return False
+        return True
+
+
+@typeguard.typechecked
+@psiflow.serializable
+class ExtendedHarmonic(Hamiltonian):
+    reference_geometry: Union[Geometry, AppFuture[Geometry]]
+    extended_hessian: Union[np.ndarray, AppFuture[np.ndarray]]
+    function_name: ClassVar[str] = "ExtendedHarmonicFunction"
+
+    def __init__(
+        self,
+        reference_geometry: Union[Geometry, AppFuture[Geometry]],
+        extended_hessian: Union[np.ndarray, AppFuture[np.ndarray]],
+    ):
+        self.reference_geometry = reference_geometry
+        self.extended_hessian = extended_hessian
+        self._create_apps()
+
+    def _create_apps(self):
+        apply_app = python_app(_apply, executors=["default_threads"])
+        self.app = partial(
+            apply_app,
+            function_cls=ExtendedHarmonicFunction,
+            **self.parameters(),
+        )
+
+    def parameters(self) -> dict:
+        positions = get_attribute(self.reference_geometry, "per_atom", "positions")
+        cell = get_attribute(self.reference_geometry, "cell")
+        energy = get_attribute(self.reference_geometry, "energy")
+        return {
+            "positions": positions,
+            "cell": cell,
+            "energy": energy,
+            "extended_hessian": self.extended_hessian,
+        }
+
+    def __eq__(self, hamiltonian: Hamiltonian) -> bool:
+        if type(hamiltonian) is not ExtendedHarmonic:
+            return False
+        if hamiltonian.reference_geometry != self.reference_geometry:
+            return False
+
+        # slightly different check for numpy arrays
+        is_array0 = type(hamiltonian.extended_hessian) is np.ndarray
+        is_array1 = type(self.extended_hessian) is np.ndarray
+        if is_array0 and is_array1:
+            equal = np.allclose(
+                hamiltonian.extended_hessian,
+                self.extended_hessian,
+            )
+        else:
+            equal = hamiltonian.extended_hessian == self.extended_hessian
 
         if not equal:
             return False
