@@ -370,15 +370,18 @@ class Harmonic(Hamiltonian):
 class ExtendedHarmonic(Hamiltonian):
     reference_geometry: Union[Geometry, AppFuture[Geometry]]
     extended_hessian: Union[np.ndarray, AppFuture[np.ndarray]]
+    hessian_coordinates: str = "sh"
     function_name: ClassVar[str] = "ExtendedHarmonicFunction"
 
     def __init__(
         self,
         reference_geometry: Union[Geometry, AppFuture[Geometry]],
         extended_hessian: Union[np.ndarray, AppFuture[np.ndarray]],
+        hessian_coordinates: str = "sh",
     ):
         self.reference_geometry = reference_geometry
         self.extended_hessian = extended_hessian
+        self.hessian_coordinates = hessian_coordinates
         self._create_apps()
 
     def _create_apps(self):
@@ -398,6 +401,7 @@ class ExtendedHarmonic(Hamiltonian):
             "cell": cell,
             "energy": energy,
             "extended_hessian": self.extended_hessian,
+            "hessian_coordinates": self.hessian_coordinates,
         }
 
     def __eq__(self, hamiltonian: Hamiltonian) -> bool:
