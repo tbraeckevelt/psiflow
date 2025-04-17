@@ -218,7 +218,6 @@ class ExtendedHarmonicFunction(EnergyFunction):
         We assume that the positions naturallly scale with the cell, leading to (ds/dh)=0 and (dr_i/dh_ji)=s_j
         This is a normal assumptions, and this is probably also assumed when calculating stresses or applying barostats
         """
-        #testing
         # defintion Tr:  r . Tr = s
         Tr = np.linalg.inv(geometry.cell)  # r . h**(-1) = s
         Trs = Tr @ self._Ts
