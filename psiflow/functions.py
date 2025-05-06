@@ -186,7 +186,7 @@ class ExtendedHarmonicFunction(EnergyFunction):
     hessian_coordinates: str = "sh"
     _Ts: np.ndarray | None = None
     _Tc: np.ndarray | None = None
-    _TcTsinv: np.ndarray | None = None
+    _transformed_pos_opt: np.ndarray | None = None
 
     def __post_init__(self):
         # defintion _Ts:  s . _Ts = hessian_coords[0]
@@ -207,7 +207,8 @@ class ExtendedHarmonicFunction(EnergyFunction):
             raise NotImplementedError(
                 f"Coordinate transformation {self.hessian_coordinates} not implemented"
             )
-        self._TcTs = self._Tc @ self._Ts
+        # optimized positions in scaled or deformed space
+        self._transformed_pos_opt = self.positions @ np.linalg.inv(self.cell) @ self._Ts
         
 
     def __call__(
@@ -218,15 +219,13 @@ class ExtendedHarmonicFunction(EnergyFunction):
         We assume that the positions naturally scale with the cell, leading to (ds/dh)=0 and (dr_i/dh_ji)=s_j
         This is a normal assumption, and this is probably also assumed when calculating stresses or applying barostats
         """
-        # defintion Tr0:  r0 . Tr0 = s0
-        Tr0 = np.linalg.inv(self.cell)
-        scaled_opt = self.positions @ Tr0 @ self._Ts
 
-        # defintion Tr:  r . Tr = s
+        # definition Tr:  r . Tr = s
         Tr = np.linalg.inv(geometry.cell)
-        scaled_sample = geometry.per_atom.positions @ Tr @ self._Ts
+        scaled_pos_sample = geometry.per_atom.positions @ Tr
+        transformed_pos_sample = scaled_pos_sample @ self._Ts
 
-        diff_pos = scaled_sample - scaled_opt
+        diff_pos = transformed_pos_sample - self._transformed_pos_opt
         diff_cell = self._Tc @ (geometry.cell - self.cell)
         delta = np.concatenate((diff_pos.reshape(-1), diff_cell.reshape(-1) ))
         grad_T = np.dot(self.extended_hessian, delta)
@@ -234,13 +233,17 @@ class ExtendedHarmonicFunction(EnergyFunction):
         if self.energy is not None:
             energy += self.energy
 
-        Trs = Tr @ self._Ts
-        Tgradc = self._TcTs @ np.linalg.pinv(scaled_sample)
-        grad_pos = grad_T[:-9].reshape(-1, 3) @ Trs.T + Tgradc.T @ grad_T[-9:].reshape(3, 3)  # TO DO: check if this is correct -- karel: if Trs is transformation matrix, then its transpose is the Jacobian. Twice inverse of Ts results in Ts.
-        grad_cell = self._Tc.T @ grad_T[-9:].reshape(3, 3)                  # TO DO: check if this is correct -- karel: this is correct
-        forces = (-1.0) * grad_pos
+        # from cell derivative to stresses
+        grad_cell = self._Tc.T @ grad_T[-9:].reshape(3, 3)
         volume = np.linalg.det(geometry.cell)
-        stress = (1/volume) * grad_cell.T @ geometry.cell    # TO DO: check if this is correct -- karel:changed to stress consistent with hessian
+        stress = (1/volume) * grad_cell.T @ geometry.cell
+
+        # from grad_T to forces (with chain rule!)
+        Trs = Tr @ self._Ts
+        pinv_scaled_pos = np.linalg.pinv(scaled_pos_sample)
+        grad_pos = grad_T[:-9].reshape(-1, 3) @ Trs.T + pinv_scaled_pos.T @ grad_cell
+        forces = (-1.0) * grad_pos
+        
         return {"energy": energy, "forces": forces, "stress": stress}
 
 
