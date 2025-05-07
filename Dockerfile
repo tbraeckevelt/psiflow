@@ -64,7 +64,7 @@ RUN /bin/bash -c -o pipefail \
      pip install --no-cache-dir git+https://github.com/acesuit/mace.git@v0.3.5"
 ARG DATE
 RUN /bin/bash -c -o pipefail \
-     "pip install --no-cache-dir git+https://github.com/molmod/psiflow.git@${PSIFLOW_VERSION}"
+     "pip install --no-cache-dir git+https://github.com/tbraeckevelt/psiflow.git@extended_hessian"
 
 # Set entrypoint
 RUN echo '#!/bin/bash' >> /opt/entry.sh && \
