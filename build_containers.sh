@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-PSIFLOW_VERSION="v4.0.0"
+PSIFLOW_VERSION="v4.0.0_ext_hess"
 CCTOOLS_VERSION=7.14.0
 PLUMED_VERSION=2.9.0
 GPU_LIBRARIES=("rocm6.2" "cu118")
@@ -56,13 +56,13 @@ if [ "$psiflow" = "true" ]; then
 			--build-arg CCTOOLS_VERSION=$CCTOOLS_VERSION \
 			--build-arg PLUMED_VERSION=$PLUMED_VERSION \
 			--build-arg DATE=$(date +%s) \
-			-t ghcr.io/molmod/$TAG \
+			-t ghcr.io/tbraeckevelt/$TAG \
 			-f Dockerfile . # test
 		if [ "$build_sif" = "true" ]; then
 			export TMPDIR=$(pwd)/tmp
 			mkdir -p $TMPDIR
-			apptainer build -F $TAG.sif docker-daemon:ghcr.io/molmod/$TAG
-			apptainer push $TAG.sif oras://ghcr.io/molmod/$TAG
+			apptainer build -F $TAG.sif docker-daemon:ghcr.io/tbraeckevelt/$TAG
+			apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
 			rm $TAG.sif
 			rm -rf $TMPDIR
 		fi
@@ -72,11 +72,11 @@ fi
 if [ "$cp2k" = "true" ]; then
 	TAG="cp2k:2024.1"
 	docker build \
-		-t ghcr.io/molmod/$TAG \
+		-t ghcr.io/tbraeckevelt/$TAG \
 		-f Dockerfile.cp2k .
 	if [ "$build_sif" = "true" ]; then
-		apptainer build -F $TAG.sif docker-daemon:ghcr.io/molmod/$TAG
-		apptainer push $TAG.sif oras://ghcr.io/molmod/$TAG
+		apptainer build -F $TAG.sif docker-daemon:ghcr.io/tbraeckevelt/$TAG
+		apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
 		rm $TAG.sif
 	fi
 fi
@@ -85,11 +85,11 @@ if [ "$gpaw" = "true" ]; then
 	TAG="gpaw:24.1"
 	sudo docker build \
 		--build-arg PSIFLOW_VERSION=$PSIFLOW_VERSION \
-		-t ghcr.io/molmod/$TAG \
+		-t ghcr.io/tbraeckevelt/$TAG \
 		-f Dockerfile.gpaw .
 	if [ "$build_sif" = "true" ]; then
-		apptainer build -F $TAG.sif docker-daemon:ghcr.io/molmod/$TAG
-		apptainer push $TAG.sif oras://ghcr.io/molmod/$TAG
+		apptainer build -F $TAG.sif docker-daemon:ghcr.io/tbraeckevelt/$TAG
+		apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
 		rm $TAG.sif
 	fi
 fi
