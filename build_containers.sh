@@ -61,9 +61,11 @@ if [ "$psiflow" = "true" ]; then
 		if [ "$build_sif" = "true" ]; then
 			export TMPDIR=$(pwd)/tmp
 			mkdir -p $TMPDIR
-			apptainer build -F $TAG.sif docker-daemon:ghcr.io/tbraeckevelt/$TAG
+                        # Safer build route using docker-archive to avoid OOM
+			docker save ghcr.io/tbraeckevelt/$TAG -o $TAG.tar
+			apptainer build $TAG.sif docker-archive://$TAG.tar
 			apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
-			rm $TAG.sif
+			rm -f $TAG.sif $TAG.tar
 			rm -rf $TMPDIR
 		fi
 	done
