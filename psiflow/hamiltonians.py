@@ -432,14 +432,17 @@ class ExtendedHarmonic(Hamiltonian):
 class MACEHamiltonian(Hamiltonian):
     external: psiflow._DataFuture
     atomic_energies: dict[str, float]
+    dtype: str = "float32"
     function_name: ClassVar[str] = "MACEFunction"
 
     def __init__(
         self,
         external: Union[Path, str, psiflow._DataFuture],
         atomic_energies: dict[str, float],
+        dtype: str = "float32",
     ):
         self.atomic_energies = atomic_energies
+        self.dtype = dtype
         if type(external) in [str, Path]:
             self.external = File(external)
         else:
@@ -466,7 +469,7 @@ class MACEHamiltonian(Hamiltonian):
             "model_path": model_path,
             "atomic_energies": self.atomic_energies,
             "ncores": evaluation.cores_per_worker,
-            "dtype": "float32",
+            "dtype": self.dtype,
             "device": "gpu" if evaluation.gpu else "cpu",
             "env_vars": evaluation.env_vars,
         }
