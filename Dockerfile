@@ -56,6 +56,7 @@ ENV LD_LIBRARY_PATH="/usr/local/plumed/lib:/usr/local/cctools/lib:$LD_LIBRARY_PA
 ARG PSIFLOW_VERSION
 ARG PARSL_VERSION
 ARG GPU_LIBRARY
+ARG GITHUB_ACCOUNT
 RUN /bin/bash -c -o pipefail \
     "source /opt/venv/bin/activate && \
      pip install --no-cache-dir pyfftw colorcet wandb pandas plotly plumed 'numpy<2.0.0' && \
@@ -64,7 +65,7 @@ RUN /bin/bash -c -o pipefail \
      pip install --no-cache-dir git+https://github.com/acesuit/mace.git@v0.3.5"
 ARG DATE
 RUN /bin/bash -c -o pipefail \
-     "pip install --no-cache-dir git+https://github.com/tbraeckevelt/psiflow.git@extended_hessian"
+     "pip install --no-cache-dir git+https://github.com/${GITHUB_ACCOUNT}/psiflow.git@${PSIFLOW_VERSION}"
 
 # Set entrypoint
 RUN echo '#!/bin/bash' >> /opt/entry.sh && \

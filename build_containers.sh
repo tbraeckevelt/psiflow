@@ -40,7 +40,8 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-PSIFLOW_VERSION="v4.0.0_ext_hess"
+GITHUB_ACCOUNT="tbraeckevelt" #"molmod"
+PSIFLOW_VERSION="extended_hessian" #"v4.0.0"
 CCTOOLS_VERSION=7.14.0
 PLUMED_VERSION=2.9.0
 GPU_LIBRARIES=("rocm6.2" "cu118")
@@ -55,13 +56,14 @@ if [ "$psiflow" = "true" ]; then
 			--build-arg PSIFLOW_VERSION=$PSIFLOW_VERSION \
 			--build-arg CCTOOLS_VERSION=$CCTOOLS_VERSION \
 			--build-arg PLUMED_VERSION=$PLUMED_VERSION \
+			--build-arg GITHUB_ACCOUNT=$GITHUB_ACCOUNT \
 			--build-arg DATE=$(date +%s) \
-			-t ghcr.io/tbraeckevelt/$TAG \
+			-t ghcr.io/${GITHUB_ACCOUNT}/$TAG \
 			-f Dockerfile . # test
 		if [ "$build_sif" = "true" ]; then
 			export TMPDIR=$(pwd)/tmp
 			mkdir -p $TMPDIR
-                        # Safer build route using docker-archive to avoid OOM
+			# Safer build route using docker-archive to avoid OOM
 			docker save ghcr.io/tbraeckevelt/$TAG -o $TAG.tar
 			apptainer build $TAG.sif docker-archive://$TAG.tar
 			apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
@@ -74,11 +76,11 @@ fi
 if [ "$cp2k" = "true" ]; then
 	TAG="cp2k:2024.1"
 	docker build \
-		-t ghcr.io/tbraeckevelt/$TAG \
+		-t ghcr.io/${GITHUB_ACCOUNT}/$TAG \
 		-f Dockerfile.cp2k .
 	if [ "$build_sif" = "true" ]; then
-		apptainer build -F $TAG.sif docker-daemon:ghcr.io/tbraeckevelt/$TAG
-		apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
+		apptainer build -F $TAG.sif docker-daemon:ghcr.io/${GITHUB_ACCOUNT}/$TAG
+		apptainer push $TAG.sif oras://ghcr.io/${GITHUB_ACCOUNT}/$TAG
 		rm $TAG.sif
 	fi
 fi
@@ -87,11 +89,11 @@ if [ "$gpaw" = "true" ]; then
 	TAG="gpaw:24.1"
 	sudo docker build \
 		--build-arg PSIFLOW_VERSION=$PSIFLOW_VERSION \
-		-t ghcr.io/tbraeckevelt/$TAG \
+		-t ghcr.io/${GITHUB_ACCOUNT}/$TAG \
 		-f Dockerfile.gpaw .
 	if [ "$build_sif" = "true" ]; then
-		apptainer build -F $TAG.sif docker-daemon:ghcr.io/tbraeckevelt/$TAG
-		apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
+		apptainer build -F $TAG.sif docker-daemon:ghcr.io/${GITHUB_ACCOUNT}/$TAG
+		apptainer push $TAG.sif oras://ghcr.io/${GITHUB_ACCOUNT}/$TAG
 		rm $TAG.sif
 	fi
 fi
