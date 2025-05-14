@@ -490,7 +490,7 @@ class MACEHamiltonian(Hamiltonian):
         return True
 
     @classmethod
-    def mace_mp0(cls, size: str = "small") -> MACEHamiltonian:
+    def mace_mp0(cls, size: str = "small", dtype = 'float32') -> MACEHamiltonian:
         urls = dict(
             small="https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-10-mace-128-L0_energy_epoch-249.model",  # 2023-12-10-mace-128-L0_energy_epoch-249.model
             large="https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-03-mace-128-L1_epoch-199.model",
@@ -501,14 +501,14 @@ class MACEHamiltonian(Hamiltonian):
             urls[size],
             parsl_file.filepath,
         )
-        return cls(parsl_file, {})
+        return cls(parsl_file, {},  dtype = dtype)
 
     @classmethod
-    def mace_cc(cls) -> MACEHamiltonian:
+    def mace_cc(cls, dtype = 'float32') -> MACEHamiltonian:
         url = "https://github.com/molmod/psiflow/raw/main/examples/data/ani500k_cc_cpu.model"
         parsl_file = psiflow.context().new_file("mace_mp_", ".pth")
         urllib.request.urlretrieve(
             url,
             parsl_file.filepath,
         )
-        return cls(parsl_file, {})
+        return cls(parsl_file, {},  dtype = dtype)

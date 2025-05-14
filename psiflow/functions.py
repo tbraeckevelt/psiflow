@@ -240,8 +240,8 @@ class ExtendedHarmonicFunction(EnergyFunction):
 
         # from grad_T to forces (with chain rule!)
         Trs = Tr @ self._Ts
-        pinv_scaled_pos = np.linalg.pinv(scaled_pos_sample)
-        grad_pos = grad_T[:-9].reshape(-1, 3) @ Trs.T + pinv_scaled_pos.T @ grad_cell
+        #pinv_scaled_pos = np.linalg.pinv(scaled_pos_sample)
+        grad_pos = grad_T[:-9].reshape(-1, 3) @ Trs.T # + pinv_scaled_pos.T @ grad_cell      with this term, the temperature is too high
         forces = (-1.0) * grad_pos
 
         stress = np.copy((stress+stress.T)/2)

@@ -64,9 +64,9 @@ if [ "$psiflow" = "true" ]; then
 			export TMPDIR=$(pwd)/tmp
 			mkdir -p $TMPDIR
 			# Safer build route using docker-archive to avoid OOM
-			docker save ghcr.io/tbraeckevelt/$TAG -o $TAG.tar
-			apptainer build $TAG.sif docker-archive://$TAG.tar
-			apptainer push $TAG.sif oras://ghcr.io/tbraeckevelt/$TAG
+			docker save ghcr.io/${GITHUB_ACCOUNT}/$TAG -o $TAG.tar
+			apptainer build -F $TAG.sif docker-archive://$TAG.tar
+			apptainer push $TAG.sif oras://ghcr.io/${GITHUB_ACCOUNT}/$TAG
 			rm -f $TAG.sif $TAG.tar
 			rm -rf $TMPDIR
 		fi
@@ -89,7 +89,7 @@ if [ "$gpaw" = "true" ]; then
 	TAG="gpaw:24.1"
 	sudo docker build \
 		--build-arg PSIFLOW_VERSION=$PSIFLOW_VERSION \
-		-t ghcr.io/${GITHUB_ACCOUNT}/$TAG \
+		-t ghcr.io/${GITHUB_ACCOUNT}/$TAG \"rocm6.2"
 		-f Dockerfile.gpaw .
 	if [ "$build_sif" = "true" ]; then
 		apptainer build -F $TAG.sif docker-daemon:ghcr.io/${GITHUB_ACCOUNT}/$TAG
